@@ -1,0 +1,92 @@
+---
+title: "CaseStudy_01"
+author: "Stephen Johnson"
+date: "February 15, 2019"
+output: 
+  html_document:
+  keep md: true
+---
+
+## Import the files "beer" and "breweries" into R
+```{R echo=TRUE}
+setwd("C:/Users/sj103/OneDrive/Documents/MSDS_Working/CaseStudy_01")
+beers <- as.data.frame(read.csv(file="Beers.csv", header=TRUE, sep=","))
+breweries <- as.data.frame(read.csv(file="Breweries.csv", header=TRUE, sep=","))
+```
+
+## 1. How many breweries are present in each state?
+```{R echo=TRUE}
+library(dplyr)
+library(knitr)
+counts <- breweries %>% # %>% pipe function
+  group_by(State) %>%
+  summarize(count =n()) %>%
+  arrange(desc(count))
+counts2 <- cbind(counts[1:25, ], counts[26:50, ])
+kable(counts2)
+kable(head(counts, 5))
+kable(tail(counts, 5))
+```
+
+
+##2. Merge beer data with the breweries data. Print the 1st 6 and last 6
+```{R echo=TRUE}
+colnames(beers) <- c("Beer", "Beer_ID", "ABV", "IBU", "Brewery_id", "Style", "Ounces")
+colnames(breweries) <- c("Brewery_id", "Brewery", "City", "State")
+final <- merge(beers, breweries, by = "Brewery_id")
+kable(head(final, 6))
+kable(tail(final, 6))
+```
+
+##3. Report the number of NA's in each column
+```{R echo=TRUE}
+sapply(final, function(x) sum(is.na(x)))
+summary(final)
+```
+
+##4. Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+```{R echo=TRUE}
+median_vals <- final %>%
+  group_by(State) %>% 
+  summarise(median_abv = median(ABV, na.rm = T),
+            median_ibu = median(IBU, na.rm = T),
+            mean_abv = mean(ABV,na.rm =T))
+
+library(ggplot2)
+ggplot(median_vals, aes(x = reorder(State, -median_abv), y = median_abv)) + 
+  geom_bar(stat = 'identity', color = 'black', fill = 'yellow2') + 
+  labs(x = 'State', y = "Median ABV", title = "Median ABV by State") + 
+  theme(axis.text.x = element_text(size = 10, angle = 90))
+ggplot(median_vals, aes(x = reorder(State, -median_ibu), y = median_ibu)) +
+  geom_bar(stat = 'identity', color = 'black', fill = 'darkorange1') +
+  labs(x = 'State', y = "Median IBU", title = "Median IBU by State") +
+  theme(axis.text.x = element_text(angle = 90))
+  ```
+```
+
+### 5.	Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
+```{r}
+max_vals = final %>% 
+  group_by(State) %>% 
+  summarise(max_ibu = max(IBU, na.rm = T),
+            max_abv = max(ABV, na.rm = T))
+
+# group_by, summmarise, arrange, slice, select are all from dplyr. 
+max_vals %>% arrange(-max_ibu) %>% slice(1)
+max_vals %>% arrange(-max_abv) %>% slice(1)
+
+```
+
+### 6.	Summary statistics for the ABV variable.
+```{r}
+final %>% select(ABV) %>% summary()
+summary(final)
+```
+
+### 7.	Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.
+```{r}
+ggplot(final, aes(x = IBU, y = ABV)) +
+  geom_point(alpha = .8, shape = 1, color = 'darkorange') + 
+  geom_smooth(method= 'lm')
+
+```
