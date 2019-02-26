@@ -7,18 +7,19 @@ output:
   keep md: true
 ---
 
-## Import the files "beer" and "breweries" into R
-```{R echo=TRUE}
+### Import the files "beer" and "breweries" into R
+```{r echo=TRUE}
 setwd("C:/Users/sj103/OneDrive/Documents/MSDS_Working/CaseStudy_01")
 beers <- as.data.frame(read.csv(file="Beers.csv", header=TRUE, sep=","))
 breweries <- as.data.frame(read.csv(file="Breweries.csv", header=TRUE, sep=","))
+state_pop <- as.data.frame(read.csv(file="StatePop.csv", header=TRUE, sep=","))
 ```
 
-## 1. How many breweries are present in each state?
+##1. How many breweries are present in each state?
 ```{R echo=TRUE}
 library(dplyr)
 library(knitr)
-counts <- breweries %>% # %>% pipe function
+counts <- breweries %>%
   group_by(State) %>%
   summarize(count =n()) %>%
   arrange(desc(count))
@@ -28,6 +29,35 @@ kable(head(counts, 5))
 kable(tail(counts, 5))
 ```
 
+### Mapping - Breweries per State
+```{r echo=TRUE}
+library(usmap)
+library(ggplot2)
+breweries_per_state = counts %>% 
+  rename(state = State) %>% 
+  mutate(state = gsub(" ","",state))
+
+plot_usmap(data = breweries_per_state, values = "count")+
+scale_fill_continuous(low = "white", high = "red")
+```
+
+### Breweries per Capita/Mapping
+```{r echo=TRUE}
+state_info <- data.frame(state = state.name, state_abb = state.abb)
+state_info <- state_info %>% 
+  merge(state_pop %>% rename(state = STATE), by = 'state') 
+breweries_updated <- breweries_per_state %>% 
+  merge(state_info, by.x = "state", by.y = "state_abb", all.x = TRUE) %>% 
+  mutate(population = as.numeric(gsub(",", "", as.character(POPULATION))),
+  bwr_per_capita = count/population) %>%
+  arrange(desc(bwr_per_capita))
+bwr_pc <- cbind(breweries_updated$state, breweries_updated$bwr_per_capita)
+colnames(bwr_pc) <- c("state", "pcap")
+kable(head(bwr_pc))
+
+plot_usmap(data = breweries_updated, values = "bwr_per_capita")+
+  scale_fill_continuous(low = "white", high = "red")
+```
 
 ##2. Merge beer data with the breweries data. Print the 1st 6 and last 6
 ```{R echo=TRUE}
@@ -49,44 +79,49 @@ summary(final)
 median_vals <- final %>%
   group_by(State) %>% 
   summarise(median_abv = median(ABV, na.rm = T),
-            median_ibu = median(IBU, na.rm = T),
-            mean_abv = mean(ABV,na.rm =T))
-
+            median_ibu = median(IBU, na.rm = T))
+median_vals2 <- median_vals %>%
+   rename(state = State) %>%
+   mutate(state = gsub(" ", "",state))
+head(median_vals2)
 library(ggplot2)
-ggplot(median_vals, aes(x = reorder(State, -median_abv), y = median_abv)) + 
-  geom_bar(stat = 'identity', color = 'black', fill = 'yellow2') + 
+ggplot(median_vals2, aes(x = reorder(state, -median_abv), y = median_abv)) + 
+  geom_bar(stat = 'identity', width = 0.9, position = position_nudge(x = 0.5),
+  color = 'black', fill = 'yellow2') + 
   labs(x = 'State', y = "Median ABV", title = "Median ABV by State") + 
   theme(axis.text.x = element_text(size = 10, angle = 90))
-ggplot(median_vals, aes(x = reorder(State, -median_ibu), y = median_ibu)) +
-  geom_bar(stat = 'identity', color = 'black', fill = 'darkorange1') +
+ggplot(median_vals2, aes(x = reorder(state, -median_ibu), y = median_ibu)) +
+  geom_bar(stat = 'identity', width = 0.9, position = position_nudge(x = 0.5),
+  color = 'black', fill = 'darkorange1') +
   labs(x = 'State', y = "Median IBU", title = "Median IBU by State") +
   theme(axis.text.x = element_text(angle = 90))
-  ```
 ```
 
-### 5.	Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
-```{r}
+##5.	Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
+```{r echo=TRUE}
+med_abv <- median_vals2 %>%
+  arrange(desc(median_abv))
+kable(head(med_abv))
+med_ibu <- median_vals2 %>%
+  arrange(desc(median_ibu))
+kable(head(med_ibu))
 max_vals = final %>% 
   group_by(State) %>% 
   summarise(max_ibu = max(IBU, na.rm = T),
             max_abv = max(ABV, na.rm = T))
-
-# group_by, summmarise, arrange, slice, select are all from dplyr. 
 max_vals %>% arrange(-max_ibu) %>% slice(1)
 max_vals %>% arrange(-max_abv) %>% slice(1)
-
 ```
 
-### 6.	Summary statistics for the ABV variable.
-```{r}
+##6.	Summary statistics for the ABV variable.
+```{r echo=TRUE}
 final %>% select(ABV) %>% summary()
 summary(final)
 ```
 
-### 7.	Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.
-```{r}
+##7.	Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.
+```{r echo=TRUE}
 ggplot(final, aes(x = IBU, y = ABV)) +
   geom_point(alpha = .8, shape = 1, color = 'darkorange') + 
   geom_smooth(method= 'lm')
-
 ```
